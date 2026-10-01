@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+
+<html lang='en'>
+
+<head>
+
+<meta charset='utf-8'>
+
+<meta name='viewport' content='width=device-width, initial-scale=1'>
+
+<title>Kiss Me!</title>
+
+<style>
+
+
+
+@font-face {
+
+font-family: 'PWScript';
+
+src: url('PWScript.ttf');
+
+}
+
+body {
+
+background-color: rgb(221, 202, 168);
+
+margin: 0;
+
+height: 100vh;
+
+display: flex;
+
+justify-content: center;
+
+align-items: center;
+
+font-family: 'PWScript';
+
+}
+
+
+
+/* Container sizing */
+
+.letter-wrapper {
+
+position: relative;
+
+width: 90vw;
+
+max-width: 550px;
+
+display: inline-block;
+
+overflow: hidden; /* Keeps kisses inside the wrapper boundaries */
+
+}
+
+
+
+#letter-click {
+
+width: 100%;
+
+height: auto;
+
+border-radius: 0; /* Sharp square corners */
+
+box-shadow: 0 8px 16px rgba(0, 0, 0, 0.25);
+
+transition: transform 0.2s ease;
+
+cursor: pointer;
+
+}
+
+
+
+#letter-click:hover {
+
+transform: scale(1.03);
+
+}
+
+
+
+/* Text overlay placed over the photo */
+
+#letter-content {
+
+position: absolute;
+
+top: 58%;
+
+left: 50%;
+
+transform: translate(-50%, -50%);
+
+width: 80%;
+
+text-align: center;
+
+color: #ffffff;
+
+pointer-events: none;
+
+opacity: 0;
+
+transition: opacity 0.2s ease;
+
+z-index: 10; /* Ensures text stays above popup kisses */
+
+}
+
+
+
+#letter-content.show {
+
+opacity: 1;
+
+}
+
+
+
+/* Big advertiser name styling */
+
+.advertiser-name {
+
+font-size: 2rem; /* Increased text size */
+
+font-weight: bold;
+
+color: #0d0c0c;
+
+}
+
+
+
+/* Pop-up Kissy PNG style */
+
+.kissy-popup {
+
+position: absolute;
+
+pointer-events: none;
+
+animation: popIn 0.3s ease-out forwards;
+
+z-index: 5;
+
+}
+
+
+
+@keyframes popIn {
+
+0% {
+
+transform: scale(0) rotate(0deg);
+
+opacity: 0;
+
+}
+
+100% {
+
+opacity: 1;
+
+}
+
+}
+
+</style>
+
+</head>
+
+
+
+<body>
+
+
+
+<div class="letter-wrapper" id="wrapper">
+
+<!-- Starts at Closed Envelope -->
+
+<img id="letter-click" src="./envelope-closed.png" alt="Envelope">
+
+
+<!-- Text overlay -->
+
+<div id="letter-content">
+
+<div id="letter-item" class="advertiser-name"></div>
+
+</div>
+
+</div>
+
+
+<script>
+
+const imageElement = document.getElementById("letter-click");
+
+const wrapper = document.getElementById("wrapper");
+
+const letterContent = document.getElementById("letter-content");
+
+const letterItem = document.getElementById("letter-item");
+
+
+
+// Paths to your assets
+
+const envelopeClosed = "./envelope-closed.png";
+
+const envelopeOpened = "./envelope-opened.png";
+
+const closedImage = "./gemini-me-mouth-closed.png";
+
+const openImage = "./gemini-me-mouth-open.png";
+
+const kissyImage = "./kissy.png"; // Path to your kissy PNG
+
+
+
+let advertisers = [];
+
+let state = 0; // 0: Closed Envelope, 1: Opened Envelope, 2: Photo Closed Mouth, 3+: Photo Open + Flipping JSON
+
+let jsonIndex = 0;
+
+
+
+// Fetch your JSON file
+
+fetch('./myJSON.json')
+
+.then(response => {
+
+if (!response.ok) throw new Error("HTTP error! Status: " + response.status);
+
+return response.json();
+
+})
+
+.then(data => {
+
+advertisers = data.label_values[0].vec;
+
+})
+
+.catch(error => console.error('Error loading JSON:', error));
+
+
+
+// Function to spawn a random kissy PNG over the image
+
+function createKissy() {
+
+const kiss = document.createElement("img");
+
+kiss.src = kissyImage;
+
+kiss.classList.add("kissy-popup");
+
+
+
+// Random position inside wrapper (10% - 80%)
+
+const randomX = Math.floor(Math.random() * 70) + 10;
+
+const randomY = Math.floor(Math.random() * 70) + 10;
+
+
+// Random size (40px - 80px) and rotation (-30deg to 30deg)
+
+const randomSize = Math.floor(Math.random() * 40) + 40;
+
+const randomRotation = Math.floor(Math.random() * 60) - 30;
+
+
+
+kiss.style.left = `${randomX}%`;
+
+kiss.style.top = `${randomY}%`;
+
+kiss.style.width = `${randomSize}px`;
+
+kiss.style.transform = `rotate(${randomRotation}deg)`;
+
+
+
+wrapper.appendChild(kiss);
+
+}
+
+
+
+// Function to remove all spawned kissy elements on reset
+
+function removeAllKisses() {
+
+const kisses = document.querySelectorAll('.kissy-popup');
+
+kisses.forEach(kiss => kiss.remove());
+
+}
+
+
+
+// Click interaction flow
+
+imageElement.addEventListener("click", function() {
+
+
+// Step 1: Open the envelope
+
+if (state === 0) {
+
+imageElement.src = envelopeOpened;
+
+state = 1;
+
+return;
+
+}
+
+
+
+// Step 2: Reveal photo (mouth closed)
+
+if (state === 1) {
+
+imageElement.src = closedImage;
+
+state = 2;
+
+return;
+
+}
+
+
+
+// Step 3: Open mouth & start flipping advertisers + pop kisses
+
+if (state >= 2) {
+
+if (advertisers.length === 0) return; // Guard until JSON loads
+
+
+
+// If reached end of JSON array, reset everything back to closed envelope
+
+if (jsonIndex >= advertisers.length) {
+
+state = 0;
+
+jsonIndex = 0;
+
+imageElement.src = envelopeClosed;
+
+letterContent.classList.remove("show");
+
+removeAllKisses();
+
+return;
+
+}
+
+
+
+// Keep mouth open image active
+
+imageElement.src = openImage;
+
+letterContent.classList.add("show");
+
+
+
+// Spawn a random kissy PNG on each click
+
+createKissy();
+
+
+
+// Display advertiser name
+
+const currentObj = advertisers[jsonIndex];
+
+letterItem.textContent = currentObj.value;
+
+
+
+jsonIndex++;
+
+state++;
+
+}
+
+});
+
+</script>
+
+
+</body>
+
+</html> 
